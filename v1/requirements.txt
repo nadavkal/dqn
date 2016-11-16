@@ -1,0 +1,17 @@
+pandas
+numpy
+scipy
+matplotlib
+scikit-learn
+theano
+bs4
+lxml
+tkinter
+html5lib
+urllib3
+requests
+zipline
+ystockquote
+realtime-stock
+yahoo-finance
+quandl
