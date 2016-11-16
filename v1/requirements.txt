@@ -4,9 +4,10 @@ scipy
 matplotlib
 scikit-learn
 theano
+keras
 bs4
 lxml
-tkinter
+tqdm
 html5lib
 urllib3
 requests
