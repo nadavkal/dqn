@@ -5,8 +5,8 @@ matplotlib
 scikit-learn
 theano
 keras
+nltk
 bs4
-lxml
 tqdm
 html5lib
 urllib3
@@ -16,3 +16,10 @@ ystockquote
 realtime-stock
 yahoo-finance
 quandl
+sqlalchemy
+Scrapy
+MySQL-python
+joblib
+ipython
+jupyter
+Django
