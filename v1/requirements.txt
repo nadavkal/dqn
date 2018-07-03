@@ -23,3 +23,5 @@ joblib
 ipython
 jupyter
 Django
+selenium
+phantomjs
