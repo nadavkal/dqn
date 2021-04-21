@@ -5,7 +5,9 @@ from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation
 from keras.layers import LSTM
 from keras.optimizers import RMSprop
-from pandas_datareader.data import DataReader
+#from pandas_datareader import DataReader
+import yfinance as yf
+#facebook = yf.download("FB", start="2015-1-1", end="2017-1-1")
 import datetime
 import numpy as np
 import pandas as pd
@@ -18,7 +20,8 @@ from functools import partial
 np.random.seed(42)
 DATA = {}
 
-symbols = pd.read_csv('http://www.nasdaq.com/screening/companies-by-name.aspx?letter=0&exchange=nasdaq&render=download')['Symbol']
+#symbols = pd.read_csv('http://www.nasdaq.com/screening/companies-by-name.aspx?letter=0&exchange=nasdaq&render=download')['Symbol']
+symbols = pd.Series()
 model = None
 
 class PortfolioGame(object):
@@ -60,27 +63,28 @@ class PortfolioGame(object):
             self.data = DATA[self.symbol]
 
         else:
-            print "DOWNLOADING DATA..."
+            print("DOWNLOADING DATA...")
             if self.symbol:
                 if self._col:
-                    self.data = DataReader(self.symbol, 'yahoo', start=start_date, end=end_date)[self._col].to_frame()
+                    self.data = yf.download(self.symbol, start=start_date, end=end_date)[self._col].to_frame()
                 else:
-                    self.data = DataReader(self.symbol, 'yahoo', start=start_date, end=end_date)
+                    self.data = yf.download(self.symbol, start=start_date, end=end_date)
             else:
                 flag = True
                 while flag:
                     try:
                         sym = self.random_symbol()
                         if self._col:
-                            self.data = DataReader(sym, 'yahoo', start=start_date, end=end_date)[self._col].to_frame()
+                            self.data = yf.download(sym, start=start_date, end=end_date)[self._col].to_frame()
                         else:
-                            self.data = DataReader(sym, 'yahoo', start=start_date, end=end_date)
+                            self.data = yf.download(sym, start=start_date, end=end_date)
                         if self.data.shape[0] > 200:
                             self.symbol = sym
                             #print self.symbol, self.data.shape[0]
                             flag = False
-                    except:
-                        print sym, 'cannot be imported'
+                    except Exception as e:
+                        print(e)
+                        print(sym, 'cannot be imported')
                 #self.data = self.data.apply(lambda x: preprocessing.MinMaxScaler.fit_transform(x),axis=1)
             #self.data = pd.DataFrame(preprocessing.MinMaxScaler().fit_transform(self.data), columns=self.data.columns)
             DATA[self.symbol] = self.data
@@ -172,7 +176,7 @@ class PortfolioGame(object):
         self.history[self.cursor, 8] = -1000
         self.holding = 0
         self.position = 0
-        print '-- Game Over --'
+        print('-- Game Over --')
 
     def stop_loss(self,action):
         sl = self.portfolio_value() <= self.starting_capital * (1 - self.max_loss)
@@ -200,18 +204,18 @@ def construct_model(window_size,inputs):
     #model.add(LSTM(1, batch_input_shape=(1,window_size*inputs)))
     #model.add(Dense(1500, init='lecun_uniform', input_shape=(window_size*inputs,), activation='relu'))
     #model.add(Dropout(0.5))
-    model.add(Dense(window_size*inputs, init='lecun_uniform', input_shape=(window_size * inputs,), activation='relu'))
+    model.add(Dense(window_size*inputs, input_shape=(window_size * inputs,), activation='relu'))
     model.add(Dropout(0.1))
     #model.add(Dense(window_size*inputs/2, init='lecun_uniform', activation='linear'))
     #model.add(Dropout(0.1))
-    model.add(Dense(window_size*inputs/4, init='lecun_uniform', activation='relu'))
+    model.add(Dense(window_size*inputs/4, activation='relu'))
     model.add(Dropout(0.1))
-    model.add(Dense(3, init='lecun_uniform', activation='linear'))
+    model.add(Dense(3, activation='linear'))
     #model.add(Activation('linear')) #linear output so we can have range of real-valued outputs
     model.compile(optimizer='rmsprop',
                   loss='categorical_crossentropy',
                   metrics=['accuracy'])  # reset weights of neural network
-    print model.summary()
+    print(model.summary())
     return model
 
 reward_col = 7
@@ -276,7 +280,7 @@ def train_model(model=None,epochs=1000, symbol=None,starting_capital=10000, max_
                     game.history[((game.cursor - 2) - game.window):game.cursor - 2].reshape(1, dim), action, reward,
                     game.history[((game.cursor) - game.window):game.cursor].reshape(1, dim))
                     # randomly sample our experience replay memory
-                    minibatch = sample(replay, batchSize)
+                    minibatch = sample(replay, int(batchSize))
                     X_train = []
                     y_train = []
                     for memory in minibatch:
@@ -314,9 +318,9 @@ def train_model(model=None,epochs=1000, symbol=None,starting_capital=10000, max_
         #elif epsilon/0.9 < 1.0:  # decrement epsilon over time
         #    epsilon /= 0.9
 
-        print i, game.symbol, game.cursor, round(epsilon,4),round(game.history[game.cursor-1, reward_col], 4), round((game.history[game.cursor - 1, 7] / game.starting_capital) * 100,
+        print(i, game.symbol, game.cursor, round(epsilon,4),round(game.history[game.cursor-1, reward_col], 4), round((game.history[game.cursor - 1, 7] / game.starting_capital) * 100,
                                               2), '%', round(
-            (game.history[game.cursor - 1, 0] / game.history[0, 0]) * 100, 2), '%', game.history_df()['action'].map({1.0: 'Buy', 0.0: 'Hold', 2.0: 'Sell'}).value_counts().to_dict(),'%.2f secs'%(timer()-start)
+            (game.history[game.cursor - 1, 0] / game.history[0, 0]) * 100, 2), '%', game.history_df()['action'].map({1.0: 'Buy', 0.0: 'Hold', 2.0: 'Sell'}).value_counts().to_dict(),'%.2f secs'%(timer()-start))
         #print timer()-start
         #game.history_df()['portfolio_value'].plot()
         #print game.history[-1,8]
@@ -328,7 +332,7 @@ def test_model(model, symbol='SPY', starting_capital=10000, max_memory=7, max_lo
     replay = []
     h=0
     status = True
-    print '===== TEST ====='
+    print('===== TEST =====')
     game = PortfolioGame(symbol=symbol, max_loss=max_loss, start_date=start_date,end_date=end_date, col=col, starting_capital=starting_capital, window=max_memory)
     dim = game.history.shape[1] * game.window
     while status:
@@ -390,14 +394,14 @@ def test_model(model, symbol='SPY', starting_capital=10000, max_memory=7, max_lo
                 replay = []
 
     game.history_df().to_csv('dqn_test.csv')
-    print game.history_df().tail()
+    print(game.history_df().tail())
 
 
 
 starting_capital = 25000
 symbol = 'SPY'
-train_start_date = '2010-01-01'
-train_end_date = '2018-07-01'
+train_start_date = '2005-01-01'
+train_end_date = '2020-01-01'
 epochs = 100
 max_memory = 10
 max_loss = 0.35
@@ -405,8 +409,8 @@ model = construct_model(window_size=max_memory, inputs=20)
 
 if __name__ == '__main__':
     for i in range(10000):
-        print i
-        model = train_model(model=model, epochs=epochs, starting_capital=starting_capital, window_size=max_memory,
+        print(i)
+        model = train_model(symbol=symbol,model=model, epochs=epochs, starting_capital=starting_capital, window_size=max_memory,
                             start_date=train_start_date,end_date=train_end_date,
                             max_loss=max_loss, buffer=max_memory*3)
 
